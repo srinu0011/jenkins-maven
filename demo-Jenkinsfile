@@ -1,0 +1,71 @@
+def mvnHome
+def remote = [:]
+  remote.name = 'stagingserver'
+  remote.host = '172.31.4.43'
+  remote.user = 'centos'
+  remote.password = 'Rnstech@123'
+  remote.allowAnyHosts = true
+pipeline {
+    agent none
+
+    stages {
+        stage('Check Out Code') {
+            agent {
+                label 'BuildServer'
+            }
+            steps {
+                git credentialsId: 'fb059305-1b4b-41a4-9b26-c71f1b6606c0', url: 'https://github.com/venkat09docs/Maven-Java-Project.git' 
+                
+                script {
+                    mvnHome = tool name: 'maven3', type: 'maven'
+                }
+            }
+        }    
+        stage('Statis Analysis') {
+            agent {
+                label 'BuildServer'
+            }
+            steps {
+                 sh "'${mvnHome}/bin/mvn' cobertura:cobertura"
+            }
+            post {
+                success {
+                     cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'target/site/cobertura/coverage.xml', conditionalCoverageTargets: '70, 0, 0', failUnhealthy: false, failUnstable: false, lineCoverageTargets: '80, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '80, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
+                }
+            }
+        } 
+        
+        stage('Packaging App') {
+            agent {
+                label 'BuildServer'
+            }
+            steps {
+                 sh "'${mvnHome}/bin/mvn' clean package"
+            }
+            post {
+                success {
+                     junit 'target/surefire-reports/*.xml'
+                     archiveArtifacts artifacts: '**/*.war', followSymlinks: false
+                }
+            }
+        }
+        
+        stage('Deploy to Staging') {
+            agent {
+                label 'BuildServer'
+            }
+            steps {
+                 sh "mv target/*.war target/webapp.war"
+                 
+                 // Stop the staging Server        TOMCAT_HOME/bin/shutdown.sh
+                 sshCommand remote: remote, command: "sh /home/centos/stagingserver/bin/shutdown.sh"
+                 
+                 // Deploy the Application         cp .war to webapps
+                 sshPut remote: remote, from: 'target/webapp.war', into: '/home/centos/stagingserver/webapps/'
+                 
+                 // Start the staging Server       TOMCAT_HOME/bin/startup.sh
+                 sshCommand remote: remote, command: "sh /home/centos/stagingserver/bin/startup.sh"
+            }            
+        }
+    }
+}

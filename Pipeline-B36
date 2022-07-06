@@ -1,0 +1,59 @@
+pipeline {
+    agent{
+        label 'BuildServer'
+    }
+    
+    tools {
+        // Install the Maven version configured as "M3" and add it to the path.
+        maven "maven3"
+    }
+    
+    stages{
+        stage('Pull Source Code'){
+            steps{
+                git credentialsId: 'Git_Credentials', url: 'https://github.com/venkat09docs/Maven-Java-Project.git'
+            }
+        }
+        
+        stage('Compile the Source Code'){
+            steps{
+                // Run Maven on a Unix agent.
+                sh "mvn clean compile"
+            }
+        }
+        
+        stage('Pre Deployment Testing'){
+            steps{
+                // Run Maven on a Unix agent.
+                sh "mvn clean test"
+            }
+            post {
+                // If Maven was able to run the tests, even if some of the test
+                // failed, record the test results .
+                success {
+                    junit '**/target/surefire-reports/*.xml'                    
+                }
+            }
+        }
+        
+        stage('Packaging'){
+            steps{
+                // Run Maven on a Unix agent.
+                sh "mvn clean package"
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: '**/*.war', followSymlinks: false                    
+                }
+            }
+        }
+        
+        stage('Deploy to Server'){
+            steps{
+                deploy adapters: [tomcat9(credentialsId: 'tomcat-server', path: '', url: 'http://13.232.82.44:8080/')], contextPath: 'webapp', war: 'target/*.war'
+            }            
+        }
+    }
+
+   
+}

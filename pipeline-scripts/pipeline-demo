@@ -1,0 +1,80 @@
+def deploy = [:]
+  deploy.name = 'deploy'
+  deploy.host = '172.31.27.155'
+  deploy.user = 'centos'
+  deploy.password = 'Rnstech@123'
+  deploy.allowAnyHosts = true
+pipeline {
+    agent {
+            label "build"
+    }
+
+    tools {
+        // Install the Maven version configured as "M3" and add it to the path.
+        maven "maven3"
+        
+    }
+
+    stages {
+        stage('Prepare-Workspace') {
+            
+            steps {
+                // Get some code from a GitHub repository
+                git 'https://github.com/venkat09docs/Maven-Java-Project.git'                
+            }            
+        }
+
+        stage('Static-Analysis') {
+            steps {
+                // Code coverage using maven cobertura
+                sh "mvn clean cobertura:cobertura"
+            }
+            post {
+                success {
+                    cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '**/target/site/cobertura/coverage.xml', conditionalCoverageTargets: '70, 0, 0', failUnhealthy: false, failUnstable: false, lineCoverageTargets: '80, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '80, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
+                }
+
+            }
+        }
+
+        stage('Pre-Deployment') {
+            steps {
+                // Junit test Cases
+                sh "mvn clean test"
+            }
+            post {
+                success {
+                    junit 'target/surefire-reports/*.xml'
+                }
+
+            }
+        }
+
+        stage('Packaging') {
+            steps {
+                // Packaging the App
+                sh "mvn clean package"
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: '**/*.war', followSymlinks: false
+                }
+
+            }
+        }
+
+        stage('Deployment') {
+            steps {
+                sh "mv target/*.war webapp.war"
+                // stop the server
+                sshCommand remote: deploy, command: 'sh /opt/webserver/bin/shutdown.sh'
+                
+                // deploy the application
+                sshPut remote: deploy, from: 'target/*.war', into: '/opt/webserver/webapps'
+
+                // start the server
+                sshCommand remote: deploy, command: 'sh /opt/webserver/bin/startup.sh'
+            }            
+        }
+    }
+}
