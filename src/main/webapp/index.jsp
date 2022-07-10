@@ -5,6 +5,6 @@
 <h3>Welcome to RNS ############### Welcome to maven-jenkins-file -pipeline-project</h3>
 <h3>Welcome to RNS ############### Welcome to maven-jenkins-pipeline demo project v2.3</h3>
 <h3>Welcome to srinu ############### Welcome to maven-jenkins-pipeline demo project v2.3</h3>
-<h3>Welcome to srinu ############### Welcome to maven-jenkins-project-pipeline demo project v2.3.5</h3>
+<h3>Welcome to srinu maven-jenkins-project-pipeline demo project v2.3.5</h3>
 </body>
 </html>
